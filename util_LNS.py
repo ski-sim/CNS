@@ -142,7 +142,7 @@ def update_bundle_and_regret_table(regret_table,old_bundle,riders_dict):
     first_row = regret_table.iloc[0,:]
     new_rider_type = first_row['MAX Rider']
     new_rider = riders_dict[new_rider_type]
-    old_riders_type = [first_row['Primary Order'].rider.type,first_row['Secondary Order'].rider.type]
+    old_riders_type = [first_row['Order1'].rider.type,first_row['Order2'].rider.type]
 
 
     if new_rider_type in old_riders_type or new_rider.available_number > 0:
@@ -150,19 +150,19 @@ def update_bundle_and_regret_table(regret_table,old_bundle,riders_dict):
             riders_dict[rider_type].available_number += 1
         riders_dict[new_rider_type].available_number -= 1
         
-        updated_bundle.remove(first_row['Primary Order'])
-        updated_bundle.remove(first_row['Secondary Order'])
+        updated_bundle.remove(first_row['Order1'])
+        updated_bundle.remove(first_row['Order2'])
         updated_bundle.append(first_row[new_rider_type + ' Bundle'])
 
-        # Primary Order, Secondary Order에 대한 내용 삭제
-        regret_table= regret_table[~regret_table['Primary Order'].isin([first_row['Primary Order'], first_row['Secondary Order']])]       
-        regret_table= regret_table[~regret_table['Secondary Order'].isin([first_row['Primary Order'], first_row['Secondary Order']])]
+        # Order1, Order2에 대한 내용 삭제
+        regret_table= regret_table[~regret_table['Order1'].isin([first_row['Order1'], first_row['Order2']])]       
+        regret_table= regret_table[~regret_table['Order2'].isin([first_row['Order1'], first_row['Order2']])]
 
     else:
-        regret_table = regret_table[~((regret_table['Primary Order'] == first_row['Primary Order']) & (regret_table['Secondary Order'] == first_row['Secondary Order']))]
-        regret_table = regret_table[~((regret_table['Secondary Order'] == first_row['Primary Order']) & (regret_table['Primary Order'] == first_row['Secondary Order']))]
+        regret_table = regret_table[~((regret_table['Order1'] == first_row['Order1']) & (regret_table['Order2'] == first_row['Order2']))]
+        regret_table = regret_table[~((regret_table['Order2'] == first_row['Order1']) & (regret_table['Order1'] == first_row['Order2']))]
         
-        regret_table = add_regret(regret_table, first_row['Primary Order'])
+        regret_table = add_regret(regret_table, first_row['Order1'])
         return  None, updated_bundle, regret_table
     
     return first_row[new_rider_type + ' Bundle'], updated_bundle, regret_table
@@ -230,8 +230,8 @@ def update_regret_table(all_orders, riders_dict,K, dist_mat, regret_table, updat
 def create_greedy_table(all_bundles, K, all_orders, riders_dict, dist_mat, timelimit=59):
     # 기존의 데이터 저장을 위한 딕셔너리 초기화
     result_dict = {
-        'Primary Order': [],
-        'Secondary Order': [],
+        'Order1': [],
+        'Order2': [],
         'CAR Bundle': [],
         'BIKE Bundle': [],
         'WALK Bundle': [],
@@ -283,8 +283,8 @@ def create_greedy_table(all_bundles, K, all_orders, riders_dict, dist_mat, timel
                 max_rider = [k for k, v in reduced_cost.items() if v == max_reduced_cost]
 
                 # 결과 딕셔너리에 값 추가
-                result_dict['Primary Order'].append(bundle1)
-                result_dict['Secondary Order'].append(bundle2)
+                result_dict['Order1'].append(bundle1)
+                result_dict['Order2'].append(bundle2)
                 result_dict['CAR Bundle'].append(optimal_bundle['CAR'])
                 result_dict['BIKE Bundle'].append(optimal_bundle['BIKE'])
                 result_dict['WALK Bundle'].append(optimal_bundle['WALK'])
@@ -344,7 +344,7 @@ def update_greedy_table(all_orders, riders_dict,K, dist_mat, greedy_table, updat
         if reduced_cost['CAR'] > 0 or reduced_cost['BIKE'] > 0 or reduced_cost['WALK'] > 0:
             max_reduced_cost = max(reduced_cost.values())
             max_rider = [k for k, v in reduced_cost.items() if v == max_reduced_cost]
-            new_df = pd.DataFrame({'Primary Order':[bundle1],'Secondary Order':[bundle2],
+            new_df = pd.DataFrame({'Order1':[bundle1],'Order2':[bundle2],
                                     'CAR Bundle':[optimal_bundle['CAR']],'BIKE Bundle':[optimal_bundle['BIKE']],'WALK Bundle':[optimal_bundle['WALK']],
                                     'CAR Reduced Cost':[reduced_cost['CAR']],'BIKE Reduced Cost':[reduced_cost['BIKE']],'WALK Reduced Cost':[reduced_cost['WALK']],
                                     'MAX Reduced Cost': [max_reduced_cost],'MAX Rider': max_rider })
@@ -357,32 +357,37 @@ def update_greedy_table(all_orders, riders_dict,K, dist_mat, greedy_table, updat
     return new_greedy_table
 
 # table에서 최대 cost를 가지는 번들 선택, 해당 번들의 주문을 greedy_table, updated_bundles에서 제외 후 번들 추가
-def update_bundle_and_greedy_table(greedy_table,old_bundle,riders_dict):
+def update_bundle_and_greedy_table(greedy_table,old_bundle,riders_dict,all_orders,K,dist_mat):
     
-    updated_bundle = old_bundle.copy()
+    updated_bundles = old_bundle.copy()
     first_row = greedy_table.iloc[0,:]
     new_rider_type = first_row['MAX Rider']
     new_rider = riders_dict[new_rider_type]
-    old_riders_type = [first_row['Primary Order'].rider.type,first_row['Secondary Order'].rider.type]
+    old_riders_types = [first_row['Order1'].rider.type,first_row['Order2'].rider.type]
 
-    if new_rider_type in old_riders_type or new_rider.available_number > 0:
-        for rider_type in old_riders_type:
-            riders_dict[rider_type].available_number += 1
+    if new_rider_type in old_riders_types or new_rider.available_number > 0:
+        for old_rider_type in old_riders_types:
+            riders_dict[old_rider_type].available_number += 1
+
         riders_dict[new_rider_type].available_number -= 1
-        
-        updated_bundle.remove(first_row['Primary Order'])
-        updated_bundle.remove(first_row['Secondary Order'])
-        updated_bundle.append(first_row[new_rider_type + ' Bundle'])
 
-        greedy_table= greedy_table[~greedy_table['Primary Order'].isin([first_row['Primary Order'], first_row['Secondary Order']])]
-        greedy_table= greedy_table[~greedy_table['Secondary Order'].isin([first_row['Primary Order'], first_row['Secondary Order']])]
-    else:
-        greedy_table = greedy_table[~((greedy_table['Primary Order'] == first_row['Primary Order']) & (greedy_table['Secondary Order'] == first_row['Secondary Order']))]
-        greedy_table = greedy_table[~((greedy_table['Secondary Order'] == first_row['Primary Order']) & (greedy_table['Primary Order'] == first_row['Secondary Order']))]
+        new_bundle = first_row[new_rider_type + ' Bundle']
+        updated_bundles.remove(first_row['Order1'])
+        updated_bundles.remove(first_row['Order2'])
+        updated_bundles.append(first_row[new_rider_type + ' Bundle'])
+
+        greedy_table= greedy_table[~greedy_table['Order1'].isin([first_row['Order1'], first_row['Order2']])]
+        greedy_table= greedy_table[~greedy_table['Order2'].isin([first_row['Order1'], first_row['Order2']])]
+        greedy_table = update_greedy_table(all_orders, riders_dict,K, dist_mat, greedy_table, updated_bundles, new_bundle)
         
-        return  None, updated_bundle, greedy_table
+        return updated_bundles, greedy_table
+    else:
+        greedy_table = greedy_table[~((greedy_table['Order1'] == first_row['Order1']) & (greedy_table['Order2'] == first_row['Order2']))]
+        greedy_table = greedy_table[~((greedy_table['Order2'] == first_row['Order1']) & (greedy_table['Order1'] == first_row['Order2']))]
+        
+        return  updated_bundles, greedy_table
     
-    return first_row[new_rider_type + ' Bundle'], updated_bundle, greedy_table
+    
 
 
 def test_feasibility(all_orders, rider, shop_seq, dlv_seq):
