@@ -87,60 +87,39 @@ def algorithm_regret(K, all_orders, my_all_riders, dist_mat, timelimit=60):
 algorithm_basic_greedy
 '''
 def algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60):
-    
-    all_riders=[]
-    temp_all_riders = my_all_riders.copy()
-    for rider in temp_all_riders:
-        info = [rider.type,rider.speed,rider.capa,rider.var_cost,rider.fixed_cost, rider.service_time, rider.available_number]
-        all_riders.append(Rider(info))
-    
     start_time = time.time()
-
+    
+    all_riders = copy.deepcopy(my_all_riders)
     for r in all_riders:
         r.T = np.round(dist_mat/r.speed + r.service_time)
-
-    # A solution is a list of bundles
-    solution = []
-
-    #------------- Custom algorithm code starts from here --------------#
 
     riders_dict = {}
     for r in all_riders:
         riders_dict[r.type] = r
     car_rider = riders_dict['CAR']
 
-    riders_num = {'CAR':car_rider.available_number,'BIKE':riders_dict['BIKE'].available_number,'WALK':riders_dict['WALK'].available_number}
-
     old_bundles = []
-
     for ord in all_orders:
         new_bundle = Bundle(all_orders, car_rider, [ord.id], [ord.id], ord.volume, dist_mat[ord.id, ord.id+K])
         old_bundles.append(new_bundle)
         car_rider.available_number -= 1
+    
     opt_bundles = old_bundles
-
     best_obj = sum((bundle.cost for bundle in opt_bundles)) / K
     print(f'Best obj = {best_obj}')
 
-    # table 설정
+    # 초기 table 설정
     greedy_table = create_greedy_table(old_bundles, K, all_orders, riders_dict, dist_mat, timelimit=60)
 
     i=0
     while True:
+        updated_bundles, greedy_table = update_bundle_and_greedy_table(greedy_table,old_bundles, riders_dict,all_orders,K,dist_mat)
+        old_bundles = updated_bundles
         if greedy_table.empty or len(greedy_table)==0: 
             break
         
-        new_bundle, updated_bundles, greedy_table = update_bundle_and_greedy_table(greedy_table,old_bundles, riders_dict)
-        if new_bundle == None: 
-            continue
-        else:
-            greedy_table = update_greedy_table(all_orders, riders_dict,K, dist_mat, greedy_table, updated_bundles, new_bundle)
-            if greedy_table.empty or len(greedy_table)==0: 
-                break
-            old_bundles = updated_bundles
-        
         # print current solution
-        if i%10==0:
+        if i%50==0:
             solution = [
             [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
             for bundle in updated_bundles
@@ -158,17 +137,15 @@ def algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60)
             [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
             for bundle in old_bundles
         ]
-    
-
-    print('end iteration')
     checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, solution)
-    print('current_solution',checked_solution['avg_cost'])
-    return solution #, opt_bundles_group
+    print('best_solution',checked_solution['avg_cost'])
+
+    return solution 
     
 '''
 algorithm_basic_greedy + relatedness
 '''
-def algorithm_basic_greedy_v2(K, all_orders, my_all_riders, dist_mat, timelimit=60):
+def algorithm_basic_greedy_LNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     
     all_riders=[]
     temp_all_riders = my_all_riders.copy()
