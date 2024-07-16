@@ -230,7 +230,6 @@ def solution_check(K, all_orders, all_riders, dist_mat, solution):
     total_dist = 0
 
     infeasibility = None
-
     if isinstance(solution, list):
 
         used_riders = {

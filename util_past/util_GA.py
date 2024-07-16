@@ -161,6 +161,7 @@ def check_crossover_feasibility(new_shop_seq,riders_dict,ALL_ORDERS,DIST,K):
     reduced_cost = {'CAR':99999,'BIKE':99999,'WALK':99999}
     optimal_bundle = {'CAR':None,'BIKE':None,'WALK':None}
     riders = ['CAR','BIKE','WALK']
+
     total_volume = get_total_volume(ALL_ORDERS, new_shop_seq)
     for rider_type in ['CAR','BIKE','WALK']:
         if total_volume > riders_dict[rider_type].capa :
@@ -177,27 +178,23 @@ def check_crossover_feasibility(new_shop_seq,riders_dict,ALL_ORDERS,DIST,K):
                 feasibility_check = test_feasibility(ALL_ORDERS, rider, shop_pem, dlv_pem)
                 if feasibility_check:
                     total_dist = get_total_distance(K, DIST, shop_pem, dlv_pem)
-
                     new_bundle = Bundle(ALL_ORDERS, rider, list(shop_pem), list(dlv_pem), total_volume, total_dist)
-    #                 riders_dict[rider_type].available_number -=1
-    #                 return new_bundle,riders_dict
-    # return None, riders_dict
-                    # if len(new_shop_seq)>3:
-                    #     riders_dict[rider_type].available_number -=1
-                    #     return new_bundle,riders_dict
                     
                     if new_bundle.cost < reduced_cost[rider_type]:
                         optimal_bundle[rider_type] = new_bundle
                         reduced_cost[rider_type] = new_bundle.cost 
                        
 
-    if reduced_cost['CAR'] < 99999 or reduced_cost['BIKE']  < 99999 or reduced_cost['WALK']  < 99999:
+    if reduced_cost['CAR'] < 99999 or reduced_cost['BIKE']  < 99999 or reduced_cost['WALK']  < 99999: 
         max_reduced_cost = min(reduced_cost.values())
         max_rider = [k for k, v in reduced_cost.items() if v == max_reduced_cost]
-        riders_dict[max_rider[0]].available_number-=1
+        
+        #riders_dict[max_rider[0]].available_number-=1
         return optimal_bundle[max_rider[0]],riders_dict
     else:
         return None ,riders_dict   
+
+
     
 def merge_remain_eachother(remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
     
@@ -362,55 +359,47 @@ def crossover(parent1, parent2,K,riders_dict,ALL_ORDERS,DIST,car_rider):
     return child_bundle,total_shop_seq,remain_order, riders_dict
 
 
-def merge_remain_one_step(child_bundle,remain_bundle, riders_dict, ALL_ORDERS, DIST, K):
+def merge_remain_one_step(child_bundle, remain_bundle, riders_dict, ALL_ORDERS, DIST, K):
     best_bundle = None
     remove_bundle = None
-    best_cost = 9999
+    best_cost = float('inf')
     new_bundle = None
-    for child in  child_bundle:
+
+    for child in child_bundle:
         new_order = remain_bundle.shop_seq + child.shop_seq
-        if len(new_order)>=4:
+        if len(new_order) >= 4:
             continue
-        # elif len(new_order)==4:
-        #     new_bundle,riders_dict = greedy_check_crossover_feasibility(new_order,riders_dict,ALL_ORDERS,DIST,K)
-        else:
-            new_bundle,riders_dict = check_crossover_feasibility(new_order,riders_dict,ALL_ORDERS,DIST,K)
+        else:# check_crossover 함수 안에서 rider 개수를 조정하면 가능한 조합 모두 반영되어서 혼동됨
+            new_bundle, riders_dict = check_crossover_feasibility(new_order, riders_dict, ALL_ORDERS, DIST, K)
         
-        if new_bundle != None:
+        if new_bundle is not None:
             if new_bundle.cost <= best_cost:
                 best_cost = new_bundle.cost
                 best_bundle = new_bundle
                 remove_bundle = child
 
-    if best_bundle != None and remove_bundle != None:
+    if best_bundle is not None and remove_bundle is not None:
         child_bundle.append(best_bundle)
         child_bundle.remove(remove_bundle)
-    elif new_bundle == None:
-        child_bundle.append(remain_bundle)
+        origin_rider_type = remove_bundle.rider.type
+        new_rider_type = best_bundle.rider.type
+        riders_dict[new_rider_type].available_number -= 1
+        riders_dict[origin_rider_type].available_number += 1
+        riders_dict['CAR'].available_number += 1
+    
     else:
         child_bundle.append(remain_bundle)
 
     return child_bundle, new_bundle
 
-def merge_remain_LNS(child_bundle, remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
-
-    for ord in remain_order:
-        # riders_dict['CAR'].available_number -=1
-        remain_bundle = Bundle(ALL_ORDERS, car_rider, [ALL_ORDERS[ord].id], [ALL_ORDERS[ord].id], ALL_ORDERS[ord].volume, DIST[ALL_ORDERS[ord].id, ALL_ORDERS[ord].id+K])
-        child_bundle, success = merge_remain_one_step(child_bundle, remain_bundle, riders_dict, ALL_ORDERS, DIST, K)
-        
-
-    return child_bundle
-
-def merge_remain(child_bundle, remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
-
+def merge_remain(current_bundles, remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
+    my_current_bundles = current_bundles.copy()
     for ord in remain_order:
         riders_dict['CAR'].available_number -=1
         remain_bundle = Bundle(ALL_ORDERS, car_rider, [ALL_ORDERS[ord].id], [ALL_ORDERS[ord].id], ALL_ORDERS[ord].volume, DIST[ALL_ORDERS[ord].id, ALL_ORDERS[ord].id+K])
-        child_bundle, success = merge_remain_one_step(child_bundle, remain_bundle, riders_dict, ALL_ORDERS, DIST, K)
-        
-
-    return child_bundle
+        update_bundles, success = merge_remain_one_step(my_current_bundles, remain_bundle, riders_dict, ALL_ORDERS, DIST, K)
+        my_current_bundles = update_bundles
+    return my_current_bundles
 
 #####################################################################################3
 import pandas as pd

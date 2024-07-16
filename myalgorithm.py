@@ -223,11 +223,11 @@ def algorithm_basic_greedy_v2(K, all_orders, my_all_riders, dist_mat, timelimit=
         
         # print current solution
         if i%10==0:
-            solution = [
+            greedy_solution = [
             [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
             for bundle in updated_bundles
                 ]
-            checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, solution)
+            checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, greedy_solution)
             print(i,'th current_solution',checked_solution['avg_cost'])  
         
         # time limit
@@ -236,99 +236,99 @@ def algorithm_basic_greedy_v2(K, all_orders, my_all_riders, dist_mat, timelimit=
 
         i+=1
 
-    solution = [
+    greedy_best_solution = [
             [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
             for bundle in old_bundles
         ]
-    checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, solution)
- 
+    checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, greedy_best_solution)
+    
+    bike_count = sum(1 for item in greedy_best_solution if item[0] == "BIKE")
+    walk_count = sum(1 for item in greedy_best_solution if item[0] == "WALK")
+    car_count = sum(1 for item in greedy_best_solution if item[0] == "CAR")
 
-    alpha, beta, gamma, p = 0.3, 0.4, 0.5, 1 # hyper parameter
+    temp_all_riders = copy.deepcopy(my_all_riders)
+    riders_dict = {}
+    for r in temp_all_riders:
+        riders_dict[r.type] = r
+    riders_dict['BIKE'].available_number-= bike_count
+    riders_dict['WALK'].available_number-= walk_count
+    riders_dict['CAR'].available_number-= car_count
+
+
+    alpha, beta, gamma, p = 0.3, 0.4, 0.5, 3 # hyper parameter
     relatedness = calculate_relatedness(all_orders, dist_mat,K,alpha, beta, gamma)
 
-    q=4 # hyper parameter
+    q=5 # hyper parameter
     best_obj = checked_solution['avg_cost']
     best_bundles = old_bundles
     print(f'performance before local search : {best_obj}')
-    iter=0
 
-    while iter<10:
-    
+    iteration = True
+    while iteration:
+        
+        lns_solution = None
+        my_rider_dict = copy.deepcopy(riders_dict)
         D = calcuate_D(relatedness,K,p,q)
-        print('D:',D)
         remain_order = copy.deepcopy(D)
         current_bundles = copy.deepcopy(old_bundles)
         remove_bundles = [] 
         remove_shop_seqs = []  
+
         for bundle in current_bundles:
             intersection = list(set(D) & set(bundle.shop_seq))
-            if len(intersection) != 0: 
-                D = list(set(D) - set(intersection))
-                new_shop_seq = list(set(bundle.shop_seq) - set(intersection))
-                remove_shop_seqs.append(new_shop_seq)
-                remove_bundles.append(bundle)
-        print('before remove:',riders_dict)
-        print(remove_bundles)
-        for bundle in remove_bundles:
-            
-            rider_type = bundle.rider.type
-            print(rider_type)
-            riders_dict[rider_type].available_number += 1
-            current_bundles.remove(bundle)
-        print('after remove:',riders_dict)
+            if len(intersection) != 0: # 교집합이 있을때,
+                D = list(set(D) - set(intersection)) # 해당 부분 D에서 제거
+                new_shop_seq = list(set(bundle.shop_seq) - set(intersection)) #기존 리스트에 교집합 부분 제거거
+                if len(new_shop_seq) != 0:
+                    remove_shop_seqs.append(new_shop_seq) # 추후에 다시 삽입
+                remove_bundles.append(bundle) # 기존 번들은 삭제
         
+        for bundle in remove_bundles:
+            rider_type = bundle.rider.type
+            my_rider_dict[rider_type].available_number += 1
+            current_bundles.remove(bundle)
+
+
         for new_shop_seq in remove_shop_seqs:
-            new_bundle,riders_dict = check_crossover_feasibility(new_shop_seq, riders_dict, all_orders, dist_mat, K)
-            current_bundles.append(new_bundle)
-            print(new_bundle)
-        print('after append:',riders_dict)
-        updated_bundles = merge_remain(current_bundles, remain_order, riders_dict, all_orders, car_rider, dist_mat, K)
-        print('after merge_remain:',riders_dict)
-        solution = [
+            new_bundle,my_rider_dict = check_crossover_feasibility(new_shop_seq, my_rider_dict, all_orders, dist_mat, K)
+            if new_bundle == None: # best rider로 바뀌면서 기존 rider가 부족할 수 있음
+                for shop_seq in new_shop_seq:
+                    shop_seq_as_list = [shop_seq]  
+                    new_bundle,my_rider_dict = check_crossover_feasibility(shop_seq_as_list, my_rider_dict, all_orders, dist_mat, K)
+                    current_bundles.append(new_bundle)
+                    rider_type = new_bundle.rider.type
+                    my_rider_dict[rider_type].available_number -= 1 
+            else:
+                current_bundles.append(new_bundle)
+                rider_type = new_bundle.rider.type
+                my_rider_dict[rider_type].available_number -= 1 # 추가
+        
+        updated_bundles = merge_remain(current_bundles, remain_order, my_rider_dict, all_orders, car_rider, dist_mat, K)
+
+        lns_solution = [
                 [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
                 for bundle in updated_bundles
                     ]
-        print('solution check')
-        checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, solution)
-        print(checked_solution['avg_cost'])
-        if best_obj > checked_solution['avg_cost']:
-            best_obj = checked_solution['avg_cost']
-            best_bundles = current_bundles
-            iter+=1
-    # while iter<10:
-        
-    #     D = calcuate_D(relatedness,K,p,q)
-    #     print('D:',D)
-    #     remain_order = copy.deepcopy(D)
-    #     current_bundles = copy.deepcopy(old_bundles)
 
-    #     remove_bundles = []  
-    #     for bundle in current_bundles:
-    #         intersection = list(set(D) & set(bundle.shop_seq))
-    #         if len(intersection) != 0:
-    #             print('origin bundle:,',bundle)
-    #             remove_bundles.append(bundle)  
-    #             D = list(set(D) - set(intersection))
-    #             new_shop_seq = list(set(bundle.shop_seq) - set(intersection))
-    #             new_bundle,riders_dict = check_crossover_feasibility(new_shop_seq, riders_dict, all_orders, dist_mat, K)
-    #             print('new bundle:,',new_bundle)
-    #             if new_bundle != None:
-    #                 current_bundles.append(new_bundle)
 
-    #     for bundle in remove_bundles:
-    #         current_bundles.remove(bundle)
+        checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, lns_solution)
+        current_cost = checked_solution['avg_cost']
 
-    #     updated_bundles = merge_remain(current_bundles, remain_order, riders_dict, all_orders, car_rider, dist_mat, K)
-        
-    #     solution = [
-    #             [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
-    #             for bundle in updated_bundles
-    #                 ]
-    #     checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, solution)
-    #     print(checked_solution['avg_cost'])
-    #     if best_obj > checked_solution['avg_cost']:
-    #         best_obj = checked_solution['avg_cost']
-    #         best_bundles = current_bundles
-    #         iter+=1
-    return solution
+        if best_obj > current_cost:
+            best_obj = current_cost
+            best_bundles = updated_bundles
+            old_bundles = updated_bundles
+            riders_dict = my_rider_dict
+            print(f'local search cost:',current_cost)
+            
+        if time.time() - start_time > timelimit-0.1:
+            print('break')
+            iteration=False
+
+    best_lns_solution = [
+                [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
+                for bundle in best_bundles
+                    ]
+    print('best')
+    return best_lns_solution
 
