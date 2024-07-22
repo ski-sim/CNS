@@ -67,7 +67,6 @@ def dynamicToList(dynamicBundles,old_bundles,riders_dict):
                     riders_dict[rider_type].available_number += 1
                 riders_dict[new_rider_type].available_number -= 1
                 bundle_list.append(row[new_rider_type + ' Bundle'])
-                print(row[new_rider_type + ' Bundle'])
                 remaining -= row['No']
     for itr in remaining:
         bundle_list.append(old_bundles[itr])

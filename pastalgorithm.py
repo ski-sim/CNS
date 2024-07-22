@@ -1,8 +1,7 @@
 from util import *
-from util_past import util_GA
-from util_past.util_clustering import *
+from util_past.clustering import *
 from util_past.dynamicProgramming import *
-from util_past.util_GA import *
+from util_past.geneticAlgorithm import *
 
 
 def algorithm_GA(K, all_orders, my_all_riders, dist_mat, timelimit=60):
@@ -90,92 +89,13 @@ def algorithm_GA(K, all_orders, my_all_riders, dist_mat, timelimit=60):
             break
     return genetic_population
     return solution
-def algorithm_dynamic_genetic(K, all_orders, my_all_riders, dist_mat,population):
-    start_time = time.time()
-    all_riders=[]
-    for rider in my_all_riders:
-        info = [rider.type,rider.speed,rider.capa,rider.var_cost,rider.fixed_cost, rider.service_time, rider.available_number]
-        all_riders.append(Rider(info))
 
-    for r in all_riders:
-        r.T = np.round(dist_mat/r.speed + r.service_time)
-
-    # A solution is a list of bundles
-    solution = []
-
-    #------------- Custom algorithm code starts from here --------------#
-
-    riders_dict = {}
-    for r in all_riders:
-        riders_dict[r.type] = r
-    car_rider = riders_dict['CAR']
-
-    riders_num = {'CAR':car_rider.available_number,'BIKE':riders_dict['BIKE'].available_number,'WALK':riders_dict['WALK'].available_number}
-    
-    all_bundles = []
-
-    for ord in all_orders:
-        new_bundle = Bundle(all_orders, car_rider, [ord.id], [ord.id], ord.volume, dist_mat[ord.id, ord.id+K])
-        all_bundles.append(new_bundle)
-        # car_rider.available_number -= 1
-    
-    
-    genetic_population = population.copy()
-
-
-    iter=0
-    start_time = time.time()
-
-    while iter <20000:
-        
-        offsprings = []
-        start_time =time.time()
-        for itr in range(2):    
-            #
-            fixed_all_riders=[]
-        
-            for rider in all_riders:
-                info = [rider.type,rider.speed,rider.capa,rider.var_cost,rider.fixed_cost, rider.service_time, rider.available_number]
-                fixed_all_riders.append(Rider(info))
-            for r in fixed_all_riders:
-                r.T = np.round(dist_mat/r.speed + r.service_time)
-
-            riders_dict={}
-            for r in fixed_all_riders:
-                temp = r
-                riders_dict[r.type] = temp
-            #
-            p1, p2 = select_parents(genetic_population,K)
-            child,_,_,_ = crossover(p1, p2,K,riders_dict,all_orders,dist_mat,car_rider)
-
-            offsprings.append(child)
-            # if time.time() - start_time > timelimit:
-            #     break
-        # print(time.time() - start_time)
-        genetic_population = substitutePopulation(genetic_population, offsprings,K)
-        mutation_probability = iter / 1000
-        
-        best,best_obj = findBestSolution(genetic_population,K)
-        if iter%50==0:
-            print(f'{iter}th iteration, avg_cost :{best_obj}')
-
-        solution = [
-            [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
-            for bundle in best
-        ]
-        checked_solution = solution_check(K, all_orders, all_riders, dist_mat, solution)
-
-        iter+=1
-        # if time.time() - start_time > timelimit:
-        #     break
-
-    return solution
 
 '''
 merge 하였을 때, cost가 가장 감소하는 순으로 merge
 rider 별로 cost도 비교해서 최적 rider로 merge
 '''
-def algorithm_cost(K, all_orders, my_all_riders, dist_mat, timelimit=60):
+def algorithm_DP(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     all_riders=[]
     for rider in my_all_riders:
         info = [rider.type,rider.speed,rider.capa,rider.var_cost,rider.fixed_cost, rider.service_time, rider.available_number]
@@ -186,10 +106,7 @@ def algorithm_cost(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     for r in all_riders:
         r.T = np.round(dist_mat/r.speed + r.service_time)
 
-    # A solution is a list of bundles
     solution = []
-
-    #------------- Custom algorithm code starts from here --------------#
 
     riders_dict = {}
     for r in all_riders:
@@ -208,7 +125,8 @@ def algorithm_cost(K, all_orders, my_all_riders, dist_mat, timelimit=60):
 
     best_obj = sum((bundle.cost for bundle in opt_bundles)) / K
     print(f'Best obj = {best_obj}')
-
+    
+    #------------- Custom algorithm code starts from here --------------#   
     opt_bundles_group =[]
     for i in range(1):
         car_rider.available_number += len(old_bundles)
@@ -216,7 +134,6 @@ def algorithm_cost(K, all_orders, my_all_riders, dist_mat, timelimit=60):
         dynamic_bundles_list = dynamicToList(dynamic_bundles,old_bundles, riders_dict)
         new_bundles = dynamic_bundles_list[:]
         old_bundles = dynamic_bundles_list[:]
-        # car_rider.available_number = riders_num['CAR'] - len(new_bundles) + riders_num['BIKE'] - riders_dict['BIKE'].available_number + riders_num['WALK'] - riders_dict['WALK'].available_number
         car_rider.available_number = riders_num['CAR'] - len(new_bundles) - riders_num['BIKE'] + riders_dict['BIKE'].available_number - riders_num['WALK'] + riders_dict['WALK'].available_number
 
         cur_obj = sum((bundle.cost for bundle in new_bundles)) / K
@@ -229,15 +146,13 @@ def algorithm_cost(K, all_orders, my_all_riders, dist_mat, timelimit=60):
             break
       
 
-
-    # Solution is a list of bundle information
     solution = [
-        # rider type, shop_seq, dlv_seq
+
         [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
         for bundle in opt_bundles
     ]
-    #------------- End of custom algorithm code--------------#
-    return solution,dynamic_bundles #, opt_bundles_group
+
+    return solution,dynamic_bundles
     
 
 '''
@@ -390,19 +305,6 @@ def algorithm_clustering_greedy(K, all_orders, all_riders, dist_mat, timelimit=6
 
     return solution
 
-
-'''
-1. 차량으로 먼저 묶음
-2. 염색체는 (1,주문 수) 크기의 벡터로 구성
-3. 열 인덱스를 무작위로 선정하여 분리된 부분을 교차
-4. infeasible한 case가 많이 나와서 feasible 할때까지 탐색 -> 시간오래걸림
-'''
-def algorithm_GA_v1(K, all_orders, all_riders, dist_mat, timelimit):
-
-    model = util_GA.CVRPPDTW(K,all_riders[2].available_number, all_riders[0].available_number, all_riders[1].available_number,all_orders, all_riders, dist_mat,0.1)
-    best_solution, best_fitness, time= model.performEvolution(100, round(K*0.7), 100, 0.1)
-    print(best_solution)
-    return best_solution
    
 '''
 1. 두개로 구성된 가능한 묶음 조합을 계산

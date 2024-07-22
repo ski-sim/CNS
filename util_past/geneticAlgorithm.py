@@ -297,13 +297,7 @@ def greedy_check_crossover_feasibility(new_shop_seq,riders_dict,ALL_ORDERS,DIST,
                     total_dist = get_total_distance(K, DIST, shop_pem, dlv_pem)
 
                     new_bundle = Bundle(ALL_ORDERS, rider, list(shop_pem), list(dlv_pem), total_volume, total_dist)
-    #                 riders_dict[rider_type].available_number -=1
-    #                 return new_bundle,riders_dict
-    # return None, riders_dict
-                    # if len(new_shop_seq)>3:
-                    #     riders_dict[rider_type].available_number -=1
-                    #     return new_bundle,riders_dict
-                    
+
                     if new_bundle.cost < reduced_cost[rider_type]:
                         optimal_bundle[rider_type] = new_bundle
                         reduced_cost[rider_type] = new_bundle.cost 
@@ -401,54 +395,3 @@ def merge_remain(current_bundles, remain_order,riders_dict,ALL_ORDERS,car_rider,
         my_current_bundles = update_bundles
     return my_current_bundles
 
-#####################################################################################3
-import pandas as pd
-def process_bundle(row, remain_order, riders_dict, ALL_ORDERS, DIST, K):
-    new_order = remain_order + row['shop_seq']
-    if len(new_order) > 4:
-        return None, riders_dict, None  # Skip to the next iteration
-    new_bundle_cost = None
-    new_bundle, riders_dict = check_crossover_feasibility(new_order, riders_dict, ALL_ORDERS, DIST, K)
-    if new_bundle != None :
-        new_bundle_cost = new_bundle.cost
-    return new_bundle, riders_dict, new_bundle_cost
-
-
-def merge_remain_one_step2(child_bundle,remain_bundle, riders_dict, ALL_ORDERS, DIST, K):
-    
-    child_bundle_df = pd.DataFrame({
-    'shop_seq': [bundle.shop_seq for bundle in child_bundle]
-    })
-
-    # Apply the function to each row
-    results = child_bundle_df.apply(
-        lambda row: process_bundle(row, remain_bundle.shop_seq, riders_dict, ALL_ORDERS, DIST, K), axis=1
-    )
-
-    results_df = pd.DataFrame(results.tolist(), columns=['new_bundle', 'riders_dict', 'new_bundle_cost'])
-    results_df['original_index'] = results_df.index
-    valid_bundles =None
-    valid_bundles = results_df[results_df['new_bundle'].notnull()]
-    if not valid_bundles.empty:
-        max_cost_index = valid_bundles['new_bundle_cost'].idxmax()
-        max_cost_bundle = valid_bundles.loc[max_cost_index, 'new_bundle']
-        original_index_to_remove = valid_bundles.loc[max_cost_index, 'original_index']
-    
-        # print("New bundle with the highest cost:", max_cost_bundle)
-        child_bundle.append(max_cost_bundle)
-        child_bundle.remove(child_bundle[original_index_to_remove])
-        return child_bundle, valid_bundles
-    else:
-        child_bundle.append(remain_bundle)
-        return child_bundle, valid_bundles
-    
-def merge_remain2(child_bundle, remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
-
-    for ord in remain_order:
-        riders_dict['CAR'].available_number -=1
-        remain_bundle = Bundle(ALL_ORDERS, car_rider, [ALL_ORDERS[ord].id], [ALL_ORDERS[ord].id], ALL_ORDERS[ord].volume, DIST[ALL_ORDERS[ord].id, ALL_ORDERS[ord].id+K])
-    
-        child_bundle, valid_bundles = merge_remain_one_step2(child_bundle, remain_bundle, riders_dict, ALL_ORDERS, DIST, K)
-    
-
-    return child_bundle

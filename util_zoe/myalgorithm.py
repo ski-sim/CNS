@@ -5,8 +5,9 @@ from util_zoe.baseline_dynamicProgramming import *
 from util_zoe.topTen import *
 from util_zoe.recentAlgorithm import *
 from util_zoe.knapsack import *
-
+from util_LNS import *
 from pastalgorithm import *
+
 def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
 
     start_time = time.time()
@@ -44,35 +45,10 @@ def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
     
     # Real Algorithm starts from here!
 
+
     joint_df = jointMerging(binary_appended_df, binary_list, order_bundles, K, all_orders, riders_dict, dist_mat, timelimit=60)
     joint_append_df = pd.concat([joint_df, binary_appended_df], ignore_index=True)
-    
-
-    # #
-    GA_list = algorithm_GA(K, all_orders, all_riders, dist_mat, 50)
-    GA_list = [item for sublist in GA_list for item in sublist]
-    new_list = list(set(GA_list) - set(joint_append_df['Bundle'].tolist()))
-    print('new list number : ',len(new_list))
-    bundles_dict = {'Bundle':[],'Orders':[],'Reduced Cost':[],'Rider':[] }
-    for i in range(len(new_list)):
-
-        bundles_dict['Bundle'].append(new_list[i])
-        bundles_dict['Orders'].append(set(new_list[i].shop_seq))
-
-        original_cost = sum(order_bundles[itr].cost for itr in new_list[i].shop_seq)
-        bundles_dict['Reduced Cost'].append(original_cost-new_list[i].cost)
-        bundles_dict['Rider'].append(new_list[i].rider.type)
-    
-
-    GA_df = pd.DataFrame(bundles_dict)
-   
-    GA_append_df = pd.concat([GA_df, joint_append_df], ignore_index=True)
-
     joint_list = bundleOptimization(joint_append_df, K, riders_dict)
-
-    # joint_df = jointMerging(binary_appended_df, binary_list, order_bundles, K, all_orders, riders_dict, dist_mat, timelimit=60)
-    # joint_append_df = pd.concat([joint_df, binary_appended_df], ignore_index=True)
-    # joint_list = bundleOptimization(joint_append_df, K, riders_dict)
 
     cur_obj = sum((bundle.cost for bundle in joint_list)) / K
     if cur_obj < best_obj:
@@ -91,3 +67,4 @@ def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
     #------------- End of custom algorithm code--------------#
     return solution
     
+
