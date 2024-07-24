@@ -1,7 +1,8 @@
 from util import *
 from util_LNS import *
-from util_past.geneticAlgorithm import *
-from pastalgorithm import *
+# from util_past.geneticAlgorithm import *
+from util_zoe.zoealgorithm import *
+# from pastalgorithm import *
 import copy
 
 
@@ -132,9 +133,30 @@ def algorithm_LNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
 
     #------------- Custom algorithm code starts from here --------------#
 
-    initial_bundles, initial_solution, riders_dict = algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True)
-    # initial_bundles, initial_solution, riders_dict = algorithm_regret(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True)
+    # initial_bundles, initial_solution, riders_dict = algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True)
+    initial_bundles, initial_solution, initial_riders_dict = algorithm(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True)
     
+    ##################################################
+    car_count = 0
+    bike_count = 0
+    walk_count = 0
+
+    # 리스트의 모든 요소에 대해 반복
+    for item in initial_bundles:
+        if item.rider.type == 'CAR':
+            car_count += 1
+        elif item.rider.type == 'BIKE':
+            bike_count += 1
+        elif item.rider.type == 'WALK':
+            walk_count += 1
+
+    initial_riders_dict['CAR'].available_number -= car_count
+    initial_riders_dict['BIKE'].available_number -= bike_count
+    initial_riders_dict['WALK'].available_number -= walk_count
+ 
+    riders_dict = copy.deepcopy(initial_riders_dict)
+    #################################################
+
     best_obj = initial_solution['avg_cost']
     best_bundles = initial_bundles
     print(f'performance before local search : {best_obj}')
@@ -142,7 +164,7 @@ def algorithm_LNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     alpha = 0.3 # 0~1
     beta = 0.4 # 0~1
     gamma = 0.5 # 0~1
-    p = 3
+    p = 5
     q = 10 # 100개당 5개 
     w = 0.01 # 0~1
     T = w * best_obj / np.log(0.5)
@@ -152,18 +174,21 @@ def algorithm_LNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     acc = 1 
     iter = True
     while iter:
-        if acc%2==0:
-            method ='random'
-        else:
-            method = 'shaw'
+        method = 'shaw'
         current_bundles, removed_orders, current_rider_dict = lns_removal(best_bundles, relatedness, all_orders, dist_mat, riders_dict, K, p, q,method)
         updated_bundles = lns_insertion(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
         # updated_bundles = lns_insertion2(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
-
+ 
+        bike_count=0
+        for item in updated_bundles:
+            if item.rider.type == 'BIKE':
+                bike_count += 1
+    
         lns_solution = [
                 [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
                 for bundle in updated_bundles
                     ]
+
         checked_solution = solution_check(K, all_orders, my_all_riders, dist_mat, lns_solution)
         current_cost = checked_solution['avg_cost']
 
@@ -191,15 +216,15 @@ def algorithm_LNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
 '''
 algorithm_basic_greedy + adaptive selection
 '''
-def algorithm_ALNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
-    
+def algorithm(K, all_orders, my_all_riders, dist_mat, timelimit=60):
+    start_time = time.time()
     all_riders=[]
     temp_all_riders = my_all_riders.copy()
     for rider in temp_all_riders:
         info = [rider.type,rider.speed,rider.capa,rider.var_cost,rider.fixed_cost, rider.service_time, rider.available_number]
         all_riders.append(Rider(info))
     
-    start_time = time.time()
+    
 
     for r in all_riders:
         r.T = np.round(dist_mat/r.speed + r.service_time)
@@ -211,7 +236,29 @@ def algorithm_ALNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
 
     #------------- Custom algorithm code starts from here --------------#
 
-    initial_bundles, initial_solution, riders_dict = algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True) 
+    # initial_bundles, initial_solution, riders_dict = algorithm_basic_greedy(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True) 
+    initial_bundles, initial_solution, initial_riders_dict = algorithm_DG(K, all_orders, my_all_riders, dist_mat, timelimit=60, lns=True)
+    ##################################################
+    car_count = 0
+    bike_count = 0
+    walk_count = 0
+
+    # 리스트의 모든 요소에 대해 반복
+    for item in initial_bundles:
+        if item.rider.type == 'CAR':
+            car_count += 1
+        elif item.rider.type == 'BIKE':
+            bike_count += 1
+        elif item.rider.type == 'WALK':
+            walk_count += 1
+
+    initial_riders_dict['CAR'].available_number -= car_count
+    initial_riders_dict['BIKE'].available_number -= bike_count
+    initial_riders_dict['WALK'].available_number -= walk_count
+ 
+    riders_dict = copy.deepcopy(initial_riders_dict)
+    ############################################################
+
     best_obj = initial_solution['avg_cost']
     best_bundles = initial_bundles
     print(f'performance before local search : {best_obj}')
@@ -220,7 +267,7 @@ def algorithm_ALNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
     beta = 0.4 # 0~1
     gamma = 0.5 # 0~1
     p = 3
-    q = 10 # 100개당 5개 
+    q = 5 # 100개당 5개 
     w = 0.01 # 0~1
     T = w * best_obj / np.log(0.5)
     C = 0.7
@@ -250,8 +297,8 @@ def algorithm_ALNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
         method = roulette_selection(heuristics,weights)
         idx = heuristics.index(method)
         current_bundles, removed_orders, current_rider_dict = lns_removal(best_bundles, relatedness, all_orders, dist_mat, riders_dict, K, p, q,method)
-        updated_bundles = lns_insertion(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
-        # updated_bundles = lns_insertion2(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
+        # updated_bundles = lns_insertion(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
+        updated_bundles = lns_insertion2(current_bundles, removed_orders, current_rider_dict, all_orders, car_rider, dist_mat, K)
 
         lns_solution = [
                 [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
@@ -268,7 +315,7 @@ def algorithm_ALNS(K, all_orders, my_all_riders, dist_mat, timelimit=60):
             print(f'simple local search cost:',current_cost)
             scores[idx] += 33
 
-        if time.time() - start_time > timelimit-0.1:
+        if time.time() - start_time > timelimit-0.3:
             print('break')
             iter = False
 

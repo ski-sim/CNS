@@ -599,7 +599,7 @@ def basic_greedy_insertion(child_bundle, remain_bundle, riders_dict, ALL_ORDERS,
 
     for child in child_bundle:
         new_order = remain_bundle.shop_seq + child.shop_seq
-        if len(new_order) >= 4:
+        if len(new_order) > 4:
             continue
         else:# check_crossover 함수 안에서 rider 개수를 조정하면 가능한 조합 모두 반영되어서 혼동됨
             new_bundle, riders_dict = check_insertion_feasibility(new_order, riders_dict, ALL_ORDERS, DIST, K)
@@ -631,6 +631,7 @@ def lns_insertion(current_bundles, remain_order,riders_dict,ALL_ORDERS,car_rider
         remain_bundle = Bundle(ALL_ORDERS, car_rider, [ALL_ORDERS[ord].id], [ALL_ORDERS[ord].id], ALL_ORDERS[ord].volume, DIST[ALL_ORDERS[ord].id, ALL_ORDERS[ord].id+K])
         update_bundles, success = basic_greedy_insertion(my_current_bundles, remain_bundle, riders_dict, ALL_ORDERS, DIST, K)
         my_current_bundles = update_bundles
+
     return my_current_bundles
 
 def lns_insertion2(current_bundles, remain_order,riders_dict,ALL_ORDERS,car_rider,DIST,K):
@@ -646,7 +647,7 @@ def lns_insertion2(current_bundles, remain_order,riders_dict,ALL_ORDERS,car_ride
 
         for child in my_current_bundles:
             new_order = remain_bundle.shop_seq + child.shop_seq
-            if len(new_order) >= 4:
+            if len(new_order) > 4:
                 continue
             else:# check_crossover 함수 안에서 rider 개수를 조정하면 가능한 조합 모두 반영되어서 혼동됨
                 new_bundle, riders_dict = check_insertion_feasibility(new_order, riders_dict, ALL_ORDERS, DIST, K)

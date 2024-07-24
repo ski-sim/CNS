@@ -5,14 +5,13 @@ from util_zoe.baseline_dynamicProgramming import *
 from util_zoe.topTen import *
 from util_zoe.recentAlgorithm import *
 from util_zoe.knapsack import *
-from util_LNS import *
-from pastalgorithm import *
 
-def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
+def algorithm_DG(K, all_orders, all_riders, dist_mat, timelimit=60,lns=False):
 
     start_time = time.time()
 
-    for r in all_riders:
+    my_all_riders = copy.deepcopy(all_riders)
+    for r in my_all_riders:
         r.T = np.round(dist_mat/r.speed + r.service_time)
 
     # A solution is a list of bundles
@@ -21,7 +20,7 @@ def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
     #------------- Custom algorithm code starts from here --------------#
 
     riders_dict = {}
-    for r in all_riders:
+    for r in my_all_riders:
         riders_dict[r.type] = r
 
     initial_df, order_bundles = initialMerging(K, all_orders, riders_dict, dist_mat, timelimit=60)
@@ -64,7 +63,11 @@ def algorithm(K, all_orders, all_riders, dist_mat, timelimit=60):
         [bundle.rider.type, bundle.shop_seq, bundle.dlv_seq]
         for bundle in opt_bundles
     ]
+    checked_solution = solution_check(K, all_orders, all_riders, dist_mat, solution)
     #------------- End of custom algorithm code--------------#
-    return solution
+    if lns == True:
+        return opt_bundles, checked_solution, riders_dict
+    else:
+        return solution 
     
 
